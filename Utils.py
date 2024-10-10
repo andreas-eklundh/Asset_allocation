@@ -5,7 +5,11 @@ import pandas as pd
 
 def PV(C,Y,T):
     pv = 0
-    t_j = [l for l in range(1,T)] 
+    if T == 10:
+        t_j = [l for l in range(1,10)] 
+    else:
+        t_j = [l-1/12 for l in range(1,10)]
+
     for i in t_j:
         pv +=  C / (1+Y)**(i) 
     pv += C / (1+Y)**(T) +   1 / (1+Y)**T 
