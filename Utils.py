@@ -70,7 +70,7 @@ def risk_parity(sigma):
     w0 = np.array([0.5,0.5])
     res = minimize(fun = risk_parity_fun, x0 = w0, method = 'trust-constr', 
                     args =(sigma),
-                    bounds = ((0,1),(0,1)),
+                    bounds = ((0,None),(0,None)),
                         constraints={'type': 'eq', 'fun': constraint})
     w_rp = res.x
     sigma_rp = np.sqrt(w_rp @ sigma @w_rp)
