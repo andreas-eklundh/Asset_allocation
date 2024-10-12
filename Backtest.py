@@ -24,7 +24,8 @@ def backtest_naive(data,mu_target):
     # From now on accounting of increase (decrease) in wealth must be accounted for
     for i,j in zip(idx,w_method):
         for k in range(1,len(data["RF"] )):
-            w0, w1, w2 = w_rf[i] / data[j][k-1], w[i][0]/ data[j][k-1], w[i][1] / data[j][k-1] 
-            data[j][k] = (1 +  w0 * data["RF"][k] + w1 * data["10YrReturns"][k] + w2 * data["Market Return"][k])*data[j][k-1]
-            
+            w0, w1, w2 = w_rf[i] / data[j][k-1], w[i][0]/ data.loc[k-1, j], w[i][1] / data.loc[k-1, j]
+            data.loc[k, j] = (1 +  w0 * data.loc[k, "RF"] + w1 * data.loc[k, "10YrReturns"] +
+                               w2 * data.loc[k, "Market Return"])*data.loc[k-1, j]
+
     return data, w0, w1, w2 
