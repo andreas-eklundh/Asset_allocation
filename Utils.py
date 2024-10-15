@@ -96,3 +96,17 @@ def get_weights(mu,sigma, mu_target,mu_e, sigma_e, mu_target_e):
     return [w_4060,w_MV,w_MVL,w_RP,w_RPl]
 
 
+
+def table_2_lower(df):
+    N = len(df.copy())
+    name_list = df.columns.tolist()
+    table2 = pd.melt(df, value_vars=name_list)
+    table2["ME"] = table2["variable"].str.split().str[0]
+    table2["PRIOR"] = table2["variable"].str.split().str[1]
+    table2 = table2.drop(columns = "variable")
+    table2 = table2.groupby(["ME","PRIOR"])["value"].agg(["mean", "std"]).reset_index()
+    table2["t-test of mean"] = table2["mean"] / (table2["std"] / np.sqrt(N))
+
+    table2 = table2.pivot(index = "ME", columns = "PRIOR", values = ["mean", "std","t-test of mean"])
+
+    return table2
