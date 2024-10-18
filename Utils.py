@@ -95,8 +95,6 @@ def get_weights(mu,sigma, mu_target,mu_e, sigma_e, mu_target_e):
 
     return [w_4060,w_MV,w_MVL,w_RP,w_RPl]
 
-
-
 def table_2_lower(df):
     N = len(df.copy())
     name_list = df.columns.tolist()
@@ -110,3 +108,35 @@ def table_2_lower(df):
     table2 = table2.pivot(index = "ME", columns = "PRIOR", values = ["mean", "std","t-test of mean"])
 
     return table2
+
+
+'''
+OLD
+
+# Functionality for finding minimum variance PF with risk free asset. Leverage allowed.
+def min_var_rf(mu,sigma, mu_target):
+    sigma_inv = np.linalg.inv(sigma)
+    o = np.ones(len(mu))
+    w_target = mu_target * sigma_inv @ mu / (mu.T @ sigma_inv @ mu)
+
+    std = np.sqrt(w_target @ sigma @ w_target)
+
+    return w_target, std
+def risk_parity(sigma):
+    w0 = np.array([0.5,0.5])
+    res = minimize(fun = risk_parity_fun, x0 = w0, method = 'trust-constr', 
+                    args =(sigma),
+                    bounds = ((0,None),(0,None)),
+                        constraints={'type': 'eq', 'fun': constraint})
+    w_rp = res.x
+    sigma_rp = np.sqrt(w_rp @ sigma @w_rp)
+
+    return w_rp, sigma_rp
+
+def levered_risk_parity(w,mu,sigma,mu_target):
+    lev = np.min([mu_target / (w @ mu), 1+0.5]) # cap if leverage above 0.5
+    w_rp_lev = lev * w
+    sigma_rp_lev = np.sqrt(w_rp_lev @ sigma @w_rp_lev)
+    
+    return w_rp_lev,sigma_rp_lev
+'''
