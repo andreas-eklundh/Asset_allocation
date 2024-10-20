@@ -133,7 +133,7 @@ def rp_gb_lev(w_rp,mu, mu_target):
     l_t = np.min([mu_target / (w_rp @ mu),0])
     w_rp_lev = l_t * w_rp
 
-    return w_rp
+    return w_rp_lev
 
 def get_weights(mu,sigma, mu_target):
     w_4060 = np.array([0,0.40,0.60])
@@ -145,12 +145,12 @@ def get_weights(mu,sigma, mu_target):
     return [w_4060,w_MV,w_MVL,w_RP,w_RPl]
 
 
-def get_weights2(mu,sigma, mu_target):
+def get_weights2(mu,sigma, mu_target, sigma_roll):
     w_4060 = np.array([0,0.40,0.60])
     w_MV = min_var(mu,sigma, mu_target)[0]
     w_MVL = min_var_rf(mu,sigma, mu_target)[0]
-    w_RP = rp_gb(sigma)[0]
-    w_RPl = levered_risk_parity(mu,sigma,mu_target)[0]
+    w_RP = rp_gb(sigma_roll)[0]
+    w_RPl = rp_gb_lev(w_RP,mu, mu_target)[0]
 
     return [w_4060,w_MV,w_MVL,w_RP,w_RPl]
 
