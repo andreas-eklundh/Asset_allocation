@@ -49,17 +49,21 @@ def variance(weights, sigma):
     return 0.5 * weights @ sigma @ weights
 
 def min_var(mu,sigma, mu_target):
-    initial_weights = np.ones(len(mu)) / len(mu)
+    # Solve only for two assets.
+    mu2 = mu[1:]
+    sigma2 = sigma[1:,1:]
+    initial_weights = np.ones(len(mu2)) / len(mu2)
 
     constraints = (
         {'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1}, 
-        {'type': 'eq', 'fun': lambda weights: np.dot(weights, mu) - mu_target}  
+        {'type': 'eq', 'fun': lambda weights: np.dot(weights, mu2) - mu_target}  
     )
-    bounds = ((0,0),(0,1),(0,1))
-    result = minimize(variance, initial_weights, args=(sigma), method='trust-constr', 
+    bounds = ((0,1),(0,1))
+    result = minimize(variance, initial_weights, args=(sigma2), method='trust-constr', 
                       bounds=bounds, constraints=constraints)
     w = result.x
-    w[0] = 0 # just for prettyness
+    w0 = 0 
+    w = np.append(w0,w)
     std = np.sqrt(w @ sigma @ w)
 
     return w, std
