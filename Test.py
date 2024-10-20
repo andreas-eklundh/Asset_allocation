@@ -19,10 +19,34 @@ data["RF"] = data["RF"] /100 # assumed this must hold
 
 
 
+
+# Naive approach
+test2,w0t,w1t,w2t = bt.backtest_naive(ind=data, mu_target=mu_target)
+
+time = pd.date_range(data["Date"][0],data["Date"][len(data["Date"]) -1 ], freq = 'ME')
+fig, ax = plt.subplots()
+ax.plot(time,test2["R_40/60"], label="R of 40/60")
+ax.plot(time,test2["R_MV"], label="R of Mean-Var")
+ax.plot(time,test2["R_MVL"], label="R of Mean-Var Leveraged")
+ax.plot(time,test2["R_RP"], label="R of Risk Parity")
+ax.plot(time,test2["R_RPL"], label="R of Risk Parity Leveraged")
+ax.xaxis.set_major_locator(mdates.YearLocator(5))  # Set a tick at the start of every year
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+plt.legend()
+plt.grid()
+plt.xticks(rotation=45, ha='right')
+plt.yscale('log')
+plt.xlabel("Time in months from start date")
+plt.ylabel("Cumulative return")
+plt.title("Subperiod:")
+plt.show()
+
+
+
 # Actual backtest test.
 initial_fits = 3
 
-test2 = bt.backtest_k(ind=data, mu_target=mu_target,m=initial_fits,l=1,K=1) # 36 trailing month window
+test2 = bt.backtest_k(ind=data, mu_target=mu_target,m=initial_fits,l=1,K=1,mfee=True) # 36 trailing month window
 
 
 time = pd.date_range(test2["Date"][0],test2["Date"][len(test2["Date"]) -1 ], freq = 'ME')
@@ -51,25 +75,5 @@ plt.show()
 
 
 
-''''
-test2,w0t,w1t,w2t = bt.backtest_naive(ind=data, mu_target=mu_target)
 
-time = pd.date_range(data["Date"][0],data["Date"][len(data["Date"]) -1 ], freq = 'ME')
-fig, ax = plt.subplots()
-ax.plot(time,test2["R_40/60"], label="R of 40/60")
-ax.plot(time,test2["R_MV"], label="R of Mean-Var")
-ax.plot(time,test2["R_MVL"], label="R of Mean-Var Leveraged")
-ax.plot(time,test2["R_RP"], label="R of Risk Parity")
-ax.plot(time,test2["R_RPL"], label="R of Risk Parity Leveraged")
-ax.xaxis.set_major_locator(mdates.YearLocator(5))  # Set a tick at the start of every year
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
-plt.legend()
-plt.grid()
-plt.xticks(rotation=45, ha='right')
-plt.yscale('log')
-plt.xlabel("Time in months from start date")
-plt.ylabel("Cumulative return")
-plt.title("Subperiod:")
-plt.show()
 
-'''
