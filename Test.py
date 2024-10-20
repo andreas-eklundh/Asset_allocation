@@ -20,7 +20,7 @@ data["RF"] = data["RF"] /100 # assumed this must hold
 # Actual backtest test.
 initial_fits = 3
 
-test2 = bt.backtest_2(ind=data, mu_target=mu_target,m=initial_fits,l=1,K=1) # 36 trailing month window
+test2, weights = bt.backtest_k(ind=data, mu_target=mu_target,m=initial_fits,l=1,K=1) # 36 trailing month window
 
 
 time = pd.date_range(test2["Date"][0],test2["Date"][len(test2["Date"]) -1 ], freq = 'ME')

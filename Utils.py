@@ -125,13 +125,17 @@ def levered_risk_parity(mu,sigma,mu_target):
 
 def rp_gb(sigma):
     k_t = 1/np.sum(1/sigma)
-    w_rp = k_t * sigma
+    w_rp = k_t * 1/sigma
+    w_rp = np.append(0,w_rp) # get RF weights.
 
     return w_rp
 
 def rp_gb_lev(w_rp,mu, mu_target):
-    l_t = np.min([mu_target / (w_rp @ mu),0])
+    l_r = mu_target / (w_rp @ mu)
+    l_t = 1+ np.min([l_r, 0.5])
     w_rp_lev = l_t * w_rp
+    w0 = 1- w_rp_lev[1:] @ np.ones(len(w_rp_lev[1:]))
+    w_rp_lev[0] = w0 # get RF weights.
 
     return w_rp_lev
 
@@ -149,8 +153,8 @@ def get_weights2(mu,sigma, mu_target, sigma_roll):
     w_4060 = np.array([0,0.40,0.60])
     w_MV = min_var(mu,sigma, mu_target)[0]
     w_MVL = min_var_rf(mu,sigma, mu_target)[0]
-    w_RP = rp_gb(sigma_roll)[0]
-    w_RPl = rp_gb_lev(w_RP,mu, mu_target)[0]
+    w_RP = rp_gb(sigma_roll)
+    w_RPl = rp_gb_lev(w_RP,mu, mu_target)
 
     return [w_4060,w_MV,w_MVL,w_RP,w_RPl]
 

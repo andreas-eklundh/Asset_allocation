@@ -38,7 +38,7 @@ def get_stats(train, mu_target):
 
 
 # Note as such that this method primarly makes sense with k=l i.e. non overlapping prediction 
-def backtest_k(ind,mu_target,m,l,K):
+def backtest_2(ind,mu_target,m,l,K):
     weights = []
     w_method = ['R_40/60', 'R_MV', 'R_MVL', 'R_RP', 'R_RPL']
     n = len(ind)
@@ -95,7 +95,7 @@ def backtest_k(ind,mu_target,m,l,K):
     return out, weights
 
 
-def backtest_2(ind,mu_target,m,l,K):
+def backtest_k(ind,mu_target,m,l,K):
     weights = []
     w_method = ['R_40/60', 'R_MV', 'R_MVL', 'R_RP', 'R_RPL']
     n = len(ind)
@@ -121,7 +121,9 @@ def backtest_2(ind,mu_target,m,l,K):
 
         mu,sigma = get_stats(train, mu_target)
         # Not really a rolling estimate, but similar. 
-        sigma_roll = np.linalg.diagonal(sigma)
+        # TODO: consider doing this rolling thing differently.
+        sigma_roll = np.cov([train['RF'],train['10YrReturns'],train['Market Return']])
+        sigma_roll = np.sqrt(np.linalg.diagonal(sigma_roll)[1:])
         # Get training weights.
         w = u.get_weights2(mu,sigma, mu_target,sigma_roll)
         weights.append(w)
