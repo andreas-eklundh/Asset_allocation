@@ -72,7 +72,7 @@ def min_var_rf(mu,sigma, mu_target):
         {'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1}, 
         {'type': 'eq', 'fun': lambda weights: np.dot(weights, mu) - mu_target}  
     )
-    bounds = ((-0.5,0),(0,1.5),(0,1.5))
+    bounds = ((-0.5,0),(0,None),(0,None))
     # Note bounds say specifically that we only leverage i.e. borrow. 
     result = minimize(variance, initial_weights, args=(sigma), method='trust-constr', 
                       bounds=bounds, constraints=constraints)
@@ -116,19 +116,40 @@ def levered_risk_parity(mu,sigma,mu_target):
     # Note we impose to actually borrow - or not but no investment. 
     res = minimize(fun = risk_parity_fun, x0 = w0, method = 'trust-constr', 
                         args =(sigma[1:,1:],True),
-                        bounds = ((-0.5,0),(0,1.5),(0,1.5)),
+                        bounds = ((-0.5,0),(0,None),(0,None)),
                             constraints=constraints)
     w_rp_lev = res.x
     sigma_rp_lev = np.sqrt(w_rp_lev @ sigma @ w_rp_lev)
     
     return w_rp_lev,sigma_rp_lev
 
+def rp_gb(sigma):
+    k_t = 1/np.sum(1/sigma)
+    w_rp = k_t * sigma
+
+    return w_rp
+
+def rp_gb_lev(w_rp,mu, mu_target):
+    l_t = np.min([mu_target / (w_rp @ mu),0])
+    w_rp_lev = l_t * w_rp
+
+    return w_rp
 
 def get_weights(mu,sigma, mu_target):
     w_4060 = np.array([0,0.40,0.60])
     w_MV = min_var(mu,sigma, mu_target)[0]
     w_MVL = min_var_rf(mu,sigma, mu_target)[0]
     w_RP = risk_parity(mu,sigma,mu_target)[0]
+    w_RPl = levered_risk_parity(mu,sigma,mu_target)[0]
+
+    return [w_4060,w_MV,w_MVL,w_RP,w_RPl]
+
+
+def get_weights2(mu,sigma, mu_target):
+    w_4060 = np.array([0,0.40,0.60])
+    w_MV = min_var(mu,sigma, mu_target)[0]
+    w_MVL = min_var_rf(mu,sigma, mu_target)[0]
+    w_RP = rp_gb(sigma)[0]
     w_RPl = levered_risk_parity(mu,sigma,mu_target)[0]
 
     return [w_4060,w_MV,w_MVL,w_RP,w_RPl]
