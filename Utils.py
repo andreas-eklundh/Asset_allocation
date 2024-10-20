@@ -72,7 +72,7 @@ def min_var_rf(mu,sigma, mu_target):
         {'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1}, 
         {'type': 'eq', 'fun': lambda weights: np.dot(weights, mu) - mu_target}  
     )
-    bounds = ((-0.5,0),(0,None),(0,None))
+    bounds = ((-0.5,0),(0,1.5),(0,1.5))
     # Note bounds say specifically that we only leverage i.e. borrow. 
     result = minimize(variance, initial_weights, args=(sigma), method='trust-constr', 
                       bounds=bounds, constraints=constraints)
@@ -116,7 +116,7 @@ def levered_risk_parity(mu,sigma,mu_target):
     # Note we impose to actually borrow - or not but no investment. 
     res = minimize(fun = risk_parity_fun, x0 = w0, method = 'trust-constr', 
                         args =(sigma[1:,1:],True),
-                        bounds = ((-0.5,0),(0,None),(0,None)),
+                        bounds = ((-0.5,0),(0,1.5),(0,1.5)),
                             constraints=constraints)
     w_rp_lev = res.x
     sigma_rp_lev = np.sqrt(w_rp_lev @ sigma @ w_rp_lev)

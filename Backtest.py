@@ -128,7 +128,7 @@ def backtest_k(ind,mu_target,m,l,K):
         sigma_roll = np.cov([train['RF'],train['10YrReturns'],train['Market Return']])
         sigma_roll = np.sqrt(np.linalg.diagonal(sigma_roll)[1:])
         # Get training weights.
-        w = u.get_weights2(mu,sigma, mu_target,sigma_roll)
+        w = u.get_weights2(mu,sigma, mu_target)
         weights.append(w)
         w = np.array(w).reshape((len(w),len(mu))) # slight format change
         w = np.vstack((w, new_row))
