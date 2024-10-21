@@ -52,38 +52,63 @@ def min_var(mu,sigma, mu_target):
     # Solve only for two assets.
     mu2 = mu[1:]
     sigma2 = sigma[1:,1:]
-    initial_weights = np.ones(len(mu2)) / len(mu2)
+    n = mu2.shape[0]
+    w = cp.Variable(n)
+    portfolio_return = mu2.T @ w
+    portfolio_variance = cp.quad_form(w, sigma2)
+    objective = cp.Minimize(portfolio_variance)
 
-    constraints = (
-        {'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1}, 
-        {'type': 'eq', 'fun': lambda weights: np.dot(weights, mu2) - mu_target}  
-    )
-    bounds = ((0,1),(0,1))
-    result = minimize(variance, initial_weights, args=(sigma2), method='trust-constr', 
-                      bounds=bounds, constraints=constraints)
-    w = result.x
-    w0 = 0 
-    w = np.append(w0,w)
-    std = np.sqrt(w @ sigma @ w)
+    constraints = [cp.sum(w) == 1,        # Sum of weights must be 1
+                w[0] >= 0,              # No short-selling for asset 1
+                w[1] >= 0,              # No short-selling for asset 2
+                portfolio_return >= 0.0075]
+    problem = cp.Problem(objective, constraints)
+    problem.solve()
+    optimal_weights = w.value
+    if optimal_weights is None:
+        constraints = [cp.sum(w) == 1,        # Sum of weights must be 1
+        w[0] >= 0,              # No short-selling for asset 1
+        w[1] >= 0,              # No short-selling for asset 2
+        portfolio_return <= 0.0075]
+        problem = cp.Problem(objective, constraints)
+        problem.solve()
+        optimal_weights = w.value
 
-    return w, std
+    optimal_weights = np.append(0,optimal_weights)
+    std = np.sqrt(optimal_weights @ sigma @ optimal_weights)
+
+    return optimal_weights, std
 
 # Functionality for finding minimum variance PF with risk free asset. Leverage allowed.
 def min_var_rf(mu,sigma, mu_target):
-    initial_weights = np.ones(len(mu)) / len(mu)
+    # Solve only for two assets.
+    n = mu.shape[0]
+    w = cp.Variable(n)
+    portfolio_return = mu.T @ w
+    portfolio_variance = cp.quad_form(w, sigma)
+    objective = cp.Minimize(portfolio_variance)
 
-    constraints = (
-        {'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1}, 
-        {'type': 'eq', 'fun': lambda weights: np.dot(weights, mu) - mu_target}  
-    )
-    bounds = ((-0.5,0),(0,1.5),(0,1.5))
-    # Note bounds say specifically that we only leverage i.e. borrow. 
-    result = minimize(variance, initial_weights, args=(sigma), method='trust-constr', 
-                      bounds=bounds, constraints=constraints)
-    w = result.x
-    std = np.sqrt(w @ sigma @ w)
+    constraints = [cp.sum(w) == 1,        # Sum of weights must be 1
+                w[0] >= -0.50,              # No short-selling for asset 1
+                w[1] >= 0, 
+                w[2] >= 0,             # No short-selling for asset 2
+                portfolio_return >= mu_target]
+    problem = cp.Problem(objective, constraints)
+    problem.solve()
+    optimal_weights = w.value
+    if optimal_weights is None:
+        constraints = [cp.sum(w) == 1,        # Sum of weights must be 1
+        w[0] <= 0,
+        w[0] >= -0.50,              # No short-selling for asset 1
+        w[1] >= 0, 
+        w[2] >= 0,
+        portfolio_return <= mu_target]
+        problem = cp.Problem(objective, constraints)
+        problem.solve()
+        optimal_weights = w.value
+    std = np.sqrt(optimal_weights @ sigma @ optimal_weights)
 
-    return w, std
+    return optimal_weights, std
 
 def risk_parity_fun(w,sigma,lev):
     if lev == True:
@@ -179,56 +204,40 @@ def table_2_lower(df):
 
 
 '''
-OLD
+def min_var(mu,sigma, mu_target):
+    # Solve only for two assets.
+    mu2 = mu[1:]
+    sigma2 = sigma[1:,1:]
+    initial_weights = np.ones(len(mu2)) / len(mu2)
+
+    constraints = (
+        {'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1}, 
+        {'type': 'eq', 'fun': lambda weights: np.dot(weights, mu2) - mu_target}  
+    )
+    bounds = ((0,1),(0,1))
+    result = minimize(variance, initial_weights, args=(sigma2), method='trust-constr', 
+                      bounds=bounds, constraints=constraints)
+    w = result.x
+    w0 = 0 
+    w = np.append(w0,w)
+    std = np.sqrt(w @ sigma @ w)
+
+    return w, std
 
 # Functionality for finding minimum variance PF with risk free asset. Leverage allowed.
 def min_var_rf(mu,sigma, mu_target):
-    sigma_inv = np.linalg.inv(sigma)
-    o = np.ones(len(mu))
-    w_target = mu_target * sigma_inv @ mu / (mu.T @ sigma_inv @ mu)
+    initial_weights = np.ones(len(mu)) / len(mu)
 
-    std = np.sqrt(w_target @ sigma @ w_target)
+    constraints = (
+        {'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1}, 
+        {'type': 'eq', 'fun': lambda weights: np.dot(weights, mu) - mu_target}  
+    )
+    bounds = ((-0.5,0),(0,1.5),(0,1.5))
+    # Note bounds say specifically that we only leverage i.e. borrow. 
+    result = minimize(variance, initial_weights, args=(sigma), method='trust-constr', 
+                      bounds=bounds, constraints=constraints)
+    w = result.x
+    std = np.sqrt(w @ sigma @ w)
 
-    return w_target, std
-def risk_parity(sigma):
-    w0 = np.array([0.5,0.5])
-    res = minimize(fun = risk_parity_fun, x0 = w0, method = 'trust-constr', 
-                    args =(sigma),
-                    bounds = ((0,None),(0,None)),
-                        constraints={'type': 'eq', 'fun': constraint})
-    w_rp = res.x
-    sigma_rp = np.sqrt(w_rp @ sigma @w_rp)
-
-    return w_rp, sigma_rp
-
-def levered_risk_parity(w,mu,sigma,mu_target):
-    lev = np.min([mu_target / (w @ mu), 1+0.5]) # cap if leverage above 0.5
-    w_rp_lev = lev * w
-    sigma_rp_lev = np.sqrt(w_rp_lev @ sigma @w_rp_lev)
-    
-    return w_rp_lev,sigma_rp_lev
-
-        sigma_inv = np.linalg.inv(sigma)
-    o = np.ones(len(mu))
-    a = mu.T @ sigma_inv @ mu
-    b = mu.T @ sigma_inv @ o
-    c = o.T  @ sigma_inv @ o
-    A = np.array([[a, b],
-                  [b,c]])
-    A_inv = np.linalg.inv(A)
-    w_target = sigma_inv @ np.array([mu,o]).T @ A_inv @ np.array([mu_target, 1])
-
-    std = np.sqrt(w_target @ sigma @ w_target)
-
-    return w_target, std
-
-
-    def min_var_rf(mu,sigma, mu_target):
-    sigma_inv = np.linalg.inv(sigma)
-    o = np.ones(len(mu))
-    w_target = mu_target * sigma_inv @ mu / (mu.T @ sigma_inv @ mu)
-
-    std = np.sqrt(w_target @ sigma @ w_target)
-
-    return w_target, std
+    return w, std
     '''
