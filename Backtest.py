@@ -20,14 +20,14 @@ def backtest_naive(ind,mu_target):
     # We do it in returns
     for i,j in zip(idx,w_method):
         out[j] = 1 + (w[i][0] * out['RF'] + w[i][1] * out['10YrReturns'] + w[i][2] * out['Market Return'])
-        Monthly_Return.loc[0, method] = out.loc[0, method]  # Store monthly returns
+        Monthly_Return.loc[0, j] = out.loc[0, j]  # Store monthly returns
     # Now, only the first obs has correct weights used. 
     # From now on accounting of increase (decrease) in wealth must be accounted for
     for i,j in zip(idx,w_method):
         for k in range(1,len(out['RF'] )):
             km1 = k - 1
             w0, w1, w2 = w[i][0] ,w[i][1], w[i][2] 
-            Monthly_Return.loc[k, method] = (1 + w0 * out.loc[k, 'RF'] + w1 * out.loc[k, '10YrReturns'] + w2 * out.loc[k, 'Market Return'])
+            Monthly_Return.loc[k, j] = (1 + w0 * out.loc[k, 'RF'] + w1 * out.loc[k, '10YrReturns'] + w2 * out.loc[k, 'Market Return'])
             out.loc[k, j] = (1 +  w0 * out.loc[k, 'RF'] + w1 * out.loc[k, '10YrReturns'] +
                                w2 * out.loc[k, 'Market Return'])*out.loc[km1, j]
 
