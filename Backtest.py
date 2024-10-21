@@ -9,23 +9,46 @@ def backtest_naive(ind,mu_target):
     # Note when specifying ind, then also period should be specified. 
     mu,sigma = get_stats(ind, mu_target)
     # Retrieve weigths
-    w = u.get_weights(mu,sigma, mu_target)
-    w_method = ['R_40/60', 'R_MV', 'R_MVL', 'R_RP', 'R_RPL']
+    #w = u.get_weights(mu,sigma, mu_target)
+    w = u.get_weights2(mu,sigma, mu_target)
+    w_method = ['R_40/60', 'R_MV', 'R_MVL', 'R_RP', 'R_RPL', 'RF']
     idx = [i for i in range(0,len(w_method))]
     out = ind.copy()
+
+    Monthly_Return = pd.DataFrame(index=ind.index, columns=w_method, dtype=float)
+
     # We do it in returns
     for i,j in zip(idx,w_method):
         out[j] = 1 + (w[i][0] * out['RF'] + w[i][1] * out['10YrReturns'] + w[i][2] * out['Market Return'])
+        Monthly_Return.loc[0, method] = out.loc[0, method]  # Store monthly returns
     # Now, only the first obs has correct weights used. 
     # From now on accounting of increase (decrease) in wealth must be accounted for
     for i,j in zip(idx,w_method):
         for k in range(1,len(out['RF'] )):
             km1 = k - 1
             w0, w1, w2 = w[i][0] ,w[i][1], w[i][2] 
+            Monthly_Return.loc[k, method] = (1 + w0 * out.loc[k, 'RF'] + w1 * out.loc[k, '10YrReturns'] + w2 * out.loc[k, 'Market Return'])
             out.loc[k, j] = (1 +  w0 * out.loc[k, 'RF'] + w1 * out.loc[k, '10YrReturns'] +
                                w2 * out.loc[k, 'Market Return'])*out.loc[km1, j]
 
-    return out, w0, w1, w2 
+    # Metrics Calculation
+    metrics_data = Monthly_Return.subtract(Monthly_Return['RF'], axis=0)
+    annualized_excess_returns = metrics_data.mean() * 12  # Annualizing excess returns
+    volatility = metrics_data.std() * np.sqrt(12)
+    sharpe_ratio = annualized_excess_returns / volatility  # Sharpe ratio
+    skewness = metrics_data.apply(skew)
+    excess_kurtosis = metrics_data.apply(lambda x: kurtosis(x, fisher=True))
+    
+    # Compile metrics into a DataFrame
+    metrics = pd.DataFrame({
+        'Annualized Excess Returns': annualized_excess_returns,
+        'Volatility': volatility,
+        'Sharpe Ratio': sharpe_ratio,
+        'Skewness': skewness,
+        'Excess Kurtosis': excess_kurtosis
+    })
+    
+    return out, w, Monthly_Return, metrics
 
 # FOLLOWS JOSTEIN'S ECONOMETRIC NOTES CHAPTER 1.5.5.
 # Essentially - fit initially, use strategy for k periods. Rebalance using available data
