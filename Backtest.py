@@ -160,8 +160,8 @@ def backtest_k(ind,mu_target,m,l,K):
             if (k == 0):
                 w0, w1, w2 =  w[:,0], w[:,1], w[:,2]
                 period_return = (1 +  w0 * pred_ret[k,0] + 
-                                w[:,0] * pred_ret[k,1] +
-                                w[:,1] * pred_ret[k,2]) 
+                                w1 * pred_ret[k,1] +
+                                w2 * pred_ret[k,2]) 
                 Monthly_Return[t + k, :] = period_return  # Store monthly returns
                 pred[k, :] = period_return*acc_return
             else:

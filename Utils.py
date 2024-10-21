@@ -48,19 +48,19 @@ def mv_analysis(mu,sigma,mu_target):
 def variance(weights, sigma):
     return 0.5 * weights @ sigma @ weights
 
+
 def min_var(mu,sigma, mu_target):
     # Solve only for two assets.
-    mu2 = mu[1:]
-    sigma2 = sigma[1:,1:]
-    n = mu2.shape[0]
+    n = mu.shape[0]
     w = cp.Variable(n)
-    portfolio_return = mu2.T @ w
-    portfolio_variance = cp.quad_form(w, sigma2)
+    portfolio_return = mu.T @ w
+    portfolio_variance = cp.quad_form(w, sigma)
     objective = cp.Minimize(portfolio_variance)
 
     constraints = [cp.sum(w) == 1,        # Sum of weights must be 1
                 w[0] >= 0,              # No short-selling for asset 1
                 w[1] >= 0,              # No short-selling for asset 2
+                w[2] >= 0,
                 portfolio_return >= 0.0075]
     problem = cp.Problem(objective, constraints)
     problem.solve()
@@ -68,13 +68,12 @@ def min_var(mu,sigma, mu_target):
     if optimal_weights is None:
         constraints = [cp.sum(w) == 1,        # Sum of weights must be 1
         w[0] >= 0,              # No short-selling for asset 1
-        w[1] >= 0,              # No short-selling for asset 2
+        w[1] >= 0,              # No short-selling for asset 1
+        w[2] >= 0,              # No short-selling for asset 2
         portfolio_return <= 0.0075]
         problem = cp.Problem(objective, constraints)
         problem.solve()
         optimal_weights = w.value
-
-    optimal_weights = np.append(0,optimal_weights)
     std = np.sqrt(optimal_weights @ sigma @ optimal_weights)
 
     return optimal_weights, std
@@ -98,7 +97,6 @@ def min_var_rf(mu,sigma, mu_target):
     optimal_weights = w.value
     if optimal_weights is None:
         constraints = [cp.sum(w) == 1,        # Sum of weights must be 1
-        w[0] <= 0,
         w[0] >= -0.50,              # No short-selling for asset 1
         w[1] >= 0, 
         w[2] >= 0,
@@ -109,6 +107,7 @@ def min_var_rf(mu,sigma, mu_target):
     std = np.sqrt(optimal_weights @ sigma @ optimal_weights)
 
     return optimal_weights, std
+
 
 def risk_parity_fun(w,sigma,lev):
     if lev == True:

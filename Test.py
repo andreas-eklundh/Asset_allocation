@@ -16,6 +16,7 @@ data = pd.merge(bond,stock, how='left', on = "Date")
 
 data = pd.merge(data.copy(),RF, 'left',on = "Date" )
 data["RF"] = data["RF"] /100 # assumed this must hold
+data = data.drop(columns = ["Mkt-RF", "SMB", "HML"])
 
 # Actual backtest test.
 initial_fits = 3
