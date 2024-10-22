@@ -8,12 +8,15 @@ from scipy.stats import skew, kurtosis
 def backtest_naive(ind,mu_target):
     # Note when specifying ind, then also period should be specified. 
     mu,sigma = get_stats(ind, mu_target)
+    new_row = [1, 0, 0]
     # Retrieve weigths
     #w = u.get_weights(mu,sigma, mu_target)
     w = u.get_weights2(mu,sigma, mu_target)
+    w = np.vstack((w, new_row))
     w_method = ['R_40/60', 'R_MV', 'R_MVL', 'R_RP', 'R_RPL', 'RF']
     idx = [i for i in range(0,len(w_method))]
     out = ind.copy()
+
 
     Monthly_Return = pd.DataFrame(index=ind.index, columns=w_method, dtype=float)
 
@@ -30,6 +33,8 @@ def backtest_naive(ind,mu_target):
             Monthly_Return.loc[k, j] = (1 + w0 * out.loc[k, 'RF'] + w1 * out.loc[k, '10YrReturns'] + w2 * out.loc[k, 'Market Return'])
             out.loc[k, j] = (1 +  w0 * out.loc[k, 'RF'] + w1 * out.loc[k, '10YrReturns'] +
                                w2 * out.loc[k, 'Market Return'])*out.loc[km1, j]
+
+    out = out.drop(columns = ['10YrReturns', 'Market Return'])
 
     # Metrics Calculation
     metrics_data = Monthly_Return.subtract(Monthly_Return['RF'], axis=0)
