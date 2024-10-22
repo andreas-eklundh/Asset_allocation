@@ -55,6 +55,48 @@ def backtest_naive(ind,mu_target):
     
     return out, w, Monthly_Return, metrics
 
+def backtest_naive2(ind, mu_target):
+    # Calculate statistics and retrieve weights
+    mu, sigma = get_stats(ind, mu_target)
+    w = u.get_weights2(mu, sigma, mu_target)  # Use a function to get weights based on mu and sigma
+    w = np.vstack((w, [1, 0, 0]))  # Appending weights for RF as [1, 0, 0]
+    w_method = ['R_40/60', 'R_MV', 'R_MVL', 'R_RP', 'R_RPL', 'RF']
+
+    # Initialize Monthly_Return DataFrame to store monthly returns
+    Monthly_Return = pd.DataFrame(index=ind.index, columns=w_method)
+
+    # Apply weights to calculate returns for each strategy
+    for i, method in enumerate(w_method):
+        Monthly_Return[method] = 1 + (w[i][0] * ind['RF'] + w[i][1] * ind['10YrReturns'] + w[i][2] * ind['Market Return'])
+
+    # Convert monthly returns to cumulative returns
+    Cumulative_Returns = Monthly_Return.cumprod()
+
+    # Drop unnecessary columns from the original data
+    ind = ind.drop(columns=['10YrReturns', 'Market Return'])
+    Cumulative_Returns = pd.concat([Cumulative_Returns, ind["Date"]],axis=1)
+
+    # Metrics Calculation
+    mean_monthly_returns = Monthly_Return.drop(columns='RF').mean()-1
+    metrics_data = Monthly_Return.subtract(Monthly_Return['RF'], axis=0).drop(columns='RF')
+    annualized_excess_returns = metrics_data.mean() * 12  # Annualizing excess returns
+    volatility = metrics_data.std() * np.sqrt(12)
+    sharpe_ratio = annualized_excess_returns / volatility
+    skewness = metrics_data.apply(skew)
+    excess_kurtosis = metrics_data.apply(lambda x: kurtosis(x, fisher=True))
+    
+    # Compile metrics into a DataFrame
+    metrics = pd.DataFrame({
+        'Mean Monthly Returns': mean_monthly_returns,
+        'Annualized Excess Returns': annualized_excess_returns,
+        'Volatility': volatility,
+        'Sharpe Ratio': sharpe_ratio,
+        'Skewness': skewness,
+        'Excess Kurtosis': excess_kurtosis
+    })
+    
+    return Cumulative_Returns, w, Monthly_Return, metrics
+
 # FOLLOWS JOSTEIN'S ECONOMETRIC NOTES CHAPTER 1.5.5.
 # Essentially - fit initially, use strategy for k periods. Rebalance using available data
 # Then follow new strategy etc.  

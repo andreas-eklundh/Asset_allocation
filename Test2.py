@@ -24,4 +24,4 @@ data["RF"] = data["RF"] /100 # assumed this must hold
 data = data.drop(columns = ["Mkt-RF", "SMB", "HML"])
 
 # Actual backtest test.
-data_naive, w_naive, monthly_naive, metrics_naive = bt.backtest_naive(data, mu_target)
+data_naive, w_naive, monthly_naive, metrics_naive = bt.backtest_naive2(data, mu_target)
