@@ -233,6 +233,7 @@ def backtest_k(ind,mu_target,m,l,K):
 
 
     # Metrics Calculation Starting from 0 + m
+    mean_monthly_returns = monthly_out.drop(columns='RF').mean()-1
     metrics_data = monthly_out.iloc[m:, :-1].subtract(monthly_out['RF'].iloc[m:], axis=0)
     annualized_excess_returns = metrics_data.mean() * 12  # Annualizing excess returns
     volatility = metrics_data.std() * np.sqrt(12)
@@ -242,6 +243,7 @@ def backtest_k(ind,mu_target,m,l,K):
 
     # Compile metrics into a DataFrame
     metrics = pd.DataFrame({
+        'Mean Monthly Returns': mean_monthly_returns,
         'Annualized Excess Returns': annualized_excess_returns,
         'Volatility': volatility,
         'Sharpe Ratio': sharpe_ratio,
