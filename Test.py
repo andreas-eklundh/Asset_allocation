@@ -18,6 +18,37 @@ data = pd.merge(data.copy(),RF, 'left',on = "Date" )
 data["RF"] = data["RF"] /100 # assumed this must hold
 data = data.drop(columns = ["Mkt-RF", "SMB", "HML"])
 
+# Test of markowitz implementation. 
+test = data[(pd.Timestamp('1990-01-31') <= pd.to_datetime(data["Date"])) &
+            (pd.Timestamp('1991-01-31') >= pd.to_datetime(data["Date"]))]
+
+sigma = np.cov([test["RF"],test["10YrReturns"],test["Market Return"]])
+mu = np.mean([test["RF"],test["10YrReturns"],test["Market Return"]],axis=1)
+weights = Utils.get_weights2(mu,sigma,mu_target) 
+
+rets = [weights[i] @ mu for i in range(0,len(weights))]
+sigmas = [np.sqrt(weights[i] @ sigma @ weights[i])  for i in range(0,len(weights))]
+
+mu_vec = np.array([mu_target + i*0.001 for i in range(-10,20)])
+sigma_vec = [Utils.mv_analysis(mu, sigma,i)[1] for i in mu_vec]
+mv_w = [Utils.mv_analysis(mu, sigma,i)[0] for i in mu_vec]
+
+plt.plot(sigma_vec, mu_vec, color = "black",label = "Mean-Variance Frontier")
+plt.plot(sigmas[0],rets[0],marker='o', color = "red", label = "40/60 Portfolio")
+plt.plot(sigmas[1],rets[1],marker='o', color = "cyan", label = "Optimal Markowitz Portfolio")
+plt.plot(sigmas[2],rets[2],marker='o', color = "green", label = "Optimal Markowitz with RF levered Portfolio")
+plt.plot(sigmas[3],rets[3],marker='o', color = "yellow", label = "Risk Parity")
+plt.plot(sigmas[4],rets[4],marker='o', color = "magenta", label = "Risk Parity leveraged")
+plt.hlines(y = mu_target,xmin = 0, xmax = 0.07)
+plt.xlim(left = 0.0,right= 0.07)
+
+plt.legend()
+plt.xlabel("Standard deviation")
+plt.ylabel("Return")
+plt.grid()
+plt.show()
+
+
 # Actual backtest test.
 initial_fits = 3
 

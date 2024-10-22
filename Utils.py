@@ -45,23 +45,25 @@ def mv_analysis(mu,sigma,mu_target):
 
     return w_target, std
 
-def get_minmean(mu):
+def get_maxret(mu,sigma,mu_target,constr):
     n = mu.shape[0]
+    # get mv stats
     w = cp.Variable(n)
     portfolio_return = mu.T @ w
     # We must find a minimum return first:
     constraints = [cp.sum(w) == 1,      # Sum of weights must be 1
-    w[0] >= 0,                          # No short-selling for asset Money
+    w[0] >= constr,                          # No short-selling for asset Money
     w[1] >= 0,                          # No short-selling for asset Bonds
-    w[2] >= 0]                          # No short-selling for asset Stocks
+    w[2] >= 0]
         
-    objective = cp.Minimize(portfolio_return)
+    objective = cp.Maximize(portfolio_return)
 
     problem = cp.Problem(objective, constraints)
     problem.solve()
     optimal_weights = w.value
-
-    return mu.T @ optimal_weights
+    # Note these weights should be optimal - or suboptimal.
+    mu_opt = optimal_weights @ mu
+    return mu_opt
 
 def variance(weights, sigma):
     return 0.5 * weights @ sigma @ weights
@@ -84,15 +86,12 @@ def min_var(mu,sigma, mu_target):
     optimal_weights = w.value
     if optimal_weights is None:
         # Problem is more delicate
-        mu_min = get_minmean(mu)
-        # We must find a minimum return first:
-        constraints = [cp.sum(w) == 1,      # Sum of weights must be 1
-        w[0] >= 0,                          # No short-selling for asset Money
-        w[1] >= 0,                          # No short-selling for asset Bonds
-        w[2] >= 0,                          # No short-selling for asset Stocks
-        portfolio_return >= mu_min]                         
-        objective = cp.Maximize(portfolio_return)
-
+        mu_max = get_maxret(mu, sigma, mu_target, constr=0)
+        constraints = [cp.sum(w) == 1,        # Sum of weights must be 1
+            w[0] >= 0,              # No short-selling for asset Money
+            w[1] >= 0,              # No short-selling for asset Bonds
+            w[2] >= 0,              # No short-selling for asset Stocks
+            portfolio_return == mu_max]
         problem = cp.Problem(objective, constraints)
         problem.solve()
         optimal_weights = w.value
@@ -118,15 +117,12 @@ def min_var_rf(mu,sigma, mu_target):
     optimal_weights = w.value
     if optimal_weights is None:
         # Problem is more delicate
-        mu_min = get_minmean(mu)
-        # We must find a minimum return first:
-        constraints = [cp.sum(w) == 1,      # Sum of weights must be 1
-        w[0] >= -0.5,                       # No short-selling for asset Money
-        w[1] >= 0,                          # No short-selling for asset Bonds
-        w[2] >= 0,                          # No short-selling for asset Stocks
-        portfolio_return >= mu_min]                         
-        objective = cp.Maximize(portfolio_return)
-
+        mu_max = get_maxret(mu, sigma, mu_target, constr=-0.5)
+        constraints = [cp.sum(w) == 1,        # Sum of weights must be 1
+            w[0] >= -0.5,           # No short-selling for asset Money
+            w[1] >= 0,              # No short-selling for asset Bonds
+            w[2] >= 0,              # No short-selling for asset Stocks
+            portfolio_return == mu_max]
         problem = cp.Problem(objective, constraints)
         problem.solve()
         optimal_weights = w.value
