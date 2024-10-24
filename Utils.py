@@ -63,7 +63,7 @@ def get_maxret(mu,sigma,mu_target,constr):
     optimal_weights = w.value
     # Note these weights should be optimal - or suboptimal.
     mu_opt = optimal_weights @ mu
-    return mu_opt
+    return mu_opt, optimal_weights
 
 def variance(weights, sigma):
     return 0.5 * weights @ sigma @ weights
@@ -86,15 +86,18 @@ def min_var(mu,sigma, mu_target):
     optimal_weights = w.value
     if optimal_weights is None:
         # Problem is more delicate
-        mu_max = get_maxret(mu, sigma, mu_target, constr=0)
+        mu_max, weigths = get_maxret(mu, sigma, mu_target, constr=0)
         constraints = [cp.sum(w) == 1,        # Sum of weights must be 1
-            w[0] >= 0,              # No short-selling for asset Money
+            w[0] >= 0,                        # No short-selling for asset Money
             w[1] >= 0,              # No short-selling for asset Bonds
             w[2] >= 0,              # No short-selling for asset Stocks
-            portfolio_return == mu_max]
+            portfolio_return >= mu_max] 
         problem = cp.Problem(objective, constraints)
         problem.solve()
         optimal_weights = w.value
+        # this latter part is only numerical instability - take weights from before.
+        if optimal_weights is None:
+            optimal_weights = weigths
     std = np.sqrt(optimal_weights @ sigma @ optimal_weights)
 
     return optimal_weights, std
@@ -117,12 +120,12 @@ def min_var_rf(mu,sigma, mu_target):
     optimal_weights = w.value
     if optimal_weights is None:
         # Problem is more delicate
-        mu_max = get_maxret(mu, sigma, mu_target, constr=-0.5)
+        mu_max, weights = get_maxret(mu, sigma, mu_target, constr=-0.5)
         constraints = [cp.sum(w) == 1,        # Sum of weights must be 1
             w[0] >= -0.5,           # No short-selling for asset Money
             w[1] >= 0,              # No short-selling for asset Bonds
             w[2] >= 0,              # No short-selling for asset Stocks
-            portfolio_return == mu_max]
+            portfolio_return >= mu_max]
         problem = cp.Problem(objective, constraints)
         problem.solve()
         optimal_weights = w.value
@@ -182,10 +185,10 @@ def rp_gb(sigma):
     return w_rp
 
 def rp_gb_lev(w_rp,mu, mu_target):
-    l_r = mu_target / (w_rp @ mu)
-    l_t = 1+ np.max([np.min([l_r, 0.5]),0])
+    l_r = (mu_target - mu[0]) / (w_rp @ mu - mu[0]*(w_rp[1]+ w_rp[2]))
+    l_t = np.max([np.min([l_r, 1.5]),1])
     w_rp_lev = l_t * w_rp.copy()
-    w0 = 1- w_rp_lev[1:] @ np.ones(len(w_rp_lev[1:]))
+    w0 = 1-  w_rp_lev[1:] @ np.ones(len(w_rp_lev[1:]))
     w_rp_lev[0] = w0 # get RF weights.
 
     return w_rp_lev
