@@ -129,6 +129,9 @@ def min_var_rf(mu,sigma, mu_target):
         problem = cp.Problem(objective, constraints)
         problem.solve()
         optimal_weights = w.value
+        # this latter part is only numerical instability - take weights from before.
+        if optimal_weights is None:
+            optimal_weights = weights
     std = np.sqrt(optimal_weights @ sigma @ optimal_weights)
 
     return optimal_weights, std
