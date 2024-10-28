@@ -228,9 +228,9 @@ def olay_opt(olay, data,mu_target,type):
     mu_cost = np.mean([data_ol_cost["RF"],data_ol_cost["10YrReturns"],data_ol_cost["Market Return"]],axis=1)
     sigma_cost = np.cov([data_ol_cost["RF"],data_ol_cost["10YrReturns"],data_ol_cost["Market Return"]])
     # 'Get weights' that give minimum variance
-    weigths = get_weights2(mu_cost,sigma_cost,mu_target)
+    weigths = get_weights2(mu_cost,sigma_cost,mu_target)[type]
     # Standard deviation:
-    std_arr = np.sqrt(weigths[type] @ sigma_cost @ weigths[type]) 
+    std_arr = np.sqrt(weigths @ sigma_cost @ weigths ) 
     
     return std_arr
 

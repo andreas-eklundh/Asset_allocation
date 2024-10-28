@@ -23,16 +23,14 @@ def backtest_naive2(ind, mu_target, olay = False):
         olays = np.zeros(len(w))
     # Apply weights to calculate returns for each strategy (find optimal overlay)
     if olay == True:
-        olays = []
         # Initialize Monthly_Return DataFrame to store monthly returns
         for i, method in enumerate(w_method[:-1]):
             # Solves for optimal (minimal std) overlay size for strategy i
             res = minimize(fun = u.olay_opt, x0 = 0.25, method = 'trust-constr', 
-                            args =(ind,mu_target,i), bounds = [(0,1)])
-            olay = np.max([np.min([float(res.x),0.5]),0])
-            olays.append(olay)
+                            args =(ind,mu_target,i), bounds = [(0,0.5)])
+            olays[i] = res.x
             # Get new stats
-            mu, sigma,mod_mkt = get_olay_stats(ind, mu_target,olay)
+            mu, sigma,mod_mkt = get_olay_stats(ind, mu_target,olays[i])
             # Calculate new weights and returns - overwrites old weight (calc weight returns many weights)
             w[i]= u.get_weights2(mu, sigma, mu_target)[i]  # Use a function to get weights based on mu and sigma 
             Monthly_Return[method] = 1 + (w[i][0] * ind['RF'] + w[i][1] * ind['10YrReturns'] + w[i][2] * mod_mkt)  
@@ -80,7 +78,7 @@ def get_olay_stats(ind,mu_target,olay):
     data_ol_cost = ind.copy()
     return_overlay = - ind["BIG LoPRIOR"] + ind["BIG HiPRIOR"]
     # Find Equity return by add return and deducing costs
-    data_ol_cost["Market Return"] =  data_ol_cost["Market Return"]+ olay * (return_overlay -
+    data_ol_cost["Market Return"] =  data_ol_cost["Market Return"]+olay * (return_overlay -
                                                                 u.manager_fee(return_overlay))
     data_ol_cost = data_ol_cost.drop(columns = ["BIG LoPRIOR", "BIG HiPRIOR"])
     mu, sigma = get_stats(data_ol_cost, mu_target)
@@ -112,8 +110,8 @@ def backtest_k(ind,mu_target,m,l,K,olay = False):
             # For each strategy, solve for overlay and find optimal weights given history
             for i in range(0,len(w)):
                 res = minimize(fun = u.olay_opt, x0 = 0.25, method = 'trust-constr', 
-                                args =(train,mu_target,i), bounds = [(0,1)])
-                olays[i] = np.max([np.min([float(res.x),0.5]),0])
+                                args =(train,mu_target,i), bounds = [(0,0.5)])
+                olays[i] = res.x
                 mu, sigma,mod_mkt = get_olay_stats(train, mu_target,olays[i])
                 # Aquire optimal weights under strategy i's overlay.
                 w[i] = u.get_weights2(mu, sigma, mu_target)[i] 
