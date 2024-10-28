@@ -215,6 +215,25 @@ def get_weights2(mu,sigma, mu_target):
 
     return [w_4060,w_MV,w_MVL,w_RP,w_RPl]
 
+# Functionality for returning std of olay's
+def olay_opt(olay, data,mu_target,type):
+    data_ol_cost = data.copy()
+    # Find overlay returns
+    return_overlay = - data["BIG LoPRIOR"] + data["BIG HiPRIOR"]
+    # Find Equity return by add return and deducing costs
+    data_ol_cost["Market Return"] =  data_ol_cost["Market Return"]+ olay * (return_overlay -
+                                                                             manager_fee(return_overlay))
+    data_ol_cost = data_ol_cost.drop(columns = ["BIG LoPRIOR", "BIG HiPRIOR"])
+
+    mu_cost = np.mean([data_ol_cost["RF"],data_ol_cost["10YrReturns"],data_ol_cost["Market Return"]],axis=1)
+    sigma_cost = np.cov([data_ol_cost["RF"],data_ol_cost["10YrReturns"],data_ol_cost["Market Return"]])
+    # 'Get weights' that give minimum variance
+    weigths = get_weights2(mu_cost,sigma_cost,mu_target)
+    # Standard deviation:
+    std_arr = np.sqrt(weigths[type] @ sigma_cost @ weigths[type]) 
+    
+    return std_arr
+
 def table_2_lower(df):
     N = len(df.copy())
     name_list = df.columns.tolist()

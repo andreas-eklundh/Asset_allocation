@@ -3,59 +3,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import Utils as u
 from scipy.stats import skew, kurtosis
+from scipy.optimize import minimize 
 
 
-def backtest_naive(ind,mu_target):
-    # Note when specifying ind, then also period should be specified. 
-    mu,sigma = get_stats(ind, mu_target)
-    new_row = [1, 0, 0]
-    # Retrieve weigths
-    #w = u.get_weights(mu,sigma, mu_target)
-    w = u.get_weights2(mu,sigma, mu_target)
-    w = np.vstack((w, new_row))
-    w_method = ['R_40/60', 'R_MV', 'R_MVL', 'R_RP', 'R_RPL', 'RF']
-    idx = [i for i in range(0,len(w_method))]
-    out = ind.copy()
-
-
-    Monthly_Return = pd.DataFrame(index=ind.index, columns=w_method, dtype=float)
-
-    # We do it in returns
-    for i,j in zip(idx,w_method):
-        out[j] = 1 + (w[i][0] * out['RF'] + w[i][1] * out['10YrReturns'] + w[i][2] * out['Market Return'])
-        Monthly_Return.loc[0, j] = out.loc[0, j]  # Store monthly returns
-    # Now, only the first obs has correct weights used. 
-    # From now on accounting of increase (decrease) in wealth must be accounted for
-    for i,j in zip(idx,w_method):
-        for k in range(1,len(out['RF'] )):
-            km1 = k - 1
-            w0, w1, w2 = w[i][0] ,w[i][1], w[i][2] 
-            Monthly_Return.loc[k, j] = (1 + w0 * out.loc[k, 'RF'] + w1 * out.loc[k, '10YrReturns'] + w2 * out.loc[k, 'Market Return'])
-            out.loc[k, j] = (1 +  w0 * out.loc[k, 'RF'] + w1 * out.loc[k, '10YrReturns'] +
-                               w2 * out.loc[k, 'Market Return'])*out.loc[km1, j]
-
-    out = out.drop(columns = ['10YrReturns', 'Market Return'])
-
-    # Metrics Calculation
-    metrics_data = Monthly_Return.subtract(Monthly_Return['RF'], axis=0)
-    annualized_excess_returns = metrics_data.mean() * 12  # Annualizing excess returns
-    volatility = metrics_data.std() * np.sqrt(12)
-    sharpe_ratio = annualized_excess_returns / volatility  # Sharpe ratio
-    skewness = metrics_data.apply(skew)
-    excess_kurtosis = metrics_data.apply(lambda x: kurtosis(x, fisher=True))
-    
-    # Compile metrics into a DataFrame
-    metrics = pd.DataFrame({
-        'Annualized Excess Returns': annualized_excess_returns,
-        'Volatility': volatility,
-        'Sharpe Ratio': sharpe_ratio,
-        'Skewness': skewness,
-        'Excess Kurtosis': excess_kurtosis
-    })
-    
-    return out, w, Monthly_Return, metrics
-
-def backtest_naive2(ind, mu_target):
+def backtest_naive2(ind, mu_target, olay = False):
     # Calculate statistics and retrieve weights
     mu, sigma = get_stats(ind, mu_target)
     w = u.get_weights2(mu, sigma, mu_target)  # Use a function to get weights based on mu and sigma
@@ -67,8 +18,25 @@ def backtest_naive2(ind, mu_target):
 
     # Apply weights to calculate returns for each strategy
     for i, method in enumerate(w_method):
-        Monthly_Return[method] = 1 + (w[i][0] * ind['RF'] + w[i][1] * ind['10YrReturns'] + w[i][2] * ind['Market Return'])
-
+        Monthly_Return[method] = 1 + (w[i][0] * ind['RF'] + w[i][1] * ind['10YrReturns'] + w[i][2] * ind['Market Return'])    
+        # just to return somewthing
+        olays = np.zeros(len(w))
+    # Apply weights to calculate returns for each strategy (find optimal overlay)
+    if olay == True:
+        olays = []
+        # Initialize Monthly_Return DataFrame to store monthly returns
+        for i, method in enumerate(w_method[:-1]):
+            # Solves for optimal (minimal std) overlay size for strategy i
+            res = minimize(fun = u.olay_opt, x0 = 0.25, method = 'trust-constr', 
+                            args =(ind,mu_target,i), bounds = [(0,1)])
+            olay = np.max([np.min([float(res.x),0.5]),0])
+            olays.append(olay)
+            # Get new stats
+            mu, sigma,mod_mkt = get_olay_stats(ind, mu_target,olay)
+            # Calculate new weights and returns - overwrites old weight (calc weight returns many weights)
+            w[i]= u.get_weights2(mu, sigma, mu_target)[i]  # Use a function to get weights based on mu and sigma 
+            Monthly_Return[method] = 1 + (w[i][0] * ind['RF'] + w[i][1] * ind['10YrReturns'] + w[i][2] * mod_mkt)  
+  
     # Convert monthly returns to cumulative returns
     Cumulative_Returns = Monthly_Return.cumprod()
 
@@ -95,7 +63,7 @@ def backtest_naive2(ind, mu_target):
         'Excess Kurtosis': excess_kurtosis
     })
     
-    return Cumulative_Returns, w, Monthly_Return, metrics
+    return Cumulative_Returns, w, Monthly_Return, metrics,olays
 
 # FOLLOWS JOSTEIN'S ECONOMETRIC NOTES CHAPTER 1.5.5.
 # Essentially - fit initially, use strategy for k periods. Rebalance using available data
@@ -107,67 +75,20 @@ def get_stats(train, mu_target):
     sigma = np.cov([train['RF'],train['10YrReturns'],train['Market Return']])
     return mu,sigma
 
+def get_olay_stats(ind,mu_target,olay):
+    # The new Equity time-series:
+    data_ol_cost = ind.copy()
+    return_overlay = - ind["BIG LoPRIOR"] + ind["BIG HiPRIOR"]
+    # Find Equity return by add return and deducing costs
+    data_ol_cost["Market Return"] =  data_ol_cost["Market Return"]+ olay * (return_overlay -
+                                                                u.manager_fee(return_overlay))
+    data_ol_cost = data_ol_cost.drop(columns = ["BIG LoPRIOR", "BIG HiPRIOR"])
+    mu, sigma = get_stats(data_ol_cost, mu_target)
+    return mu, sigma, data_ol_cost["Market Return"]
 
-# Note as such that this method primarly makes sense with k=l i.e. non overlapping prediction 
-def backtest_2(ind,mu_target,m,l,K):
+def backtest_k(ind,mu_target,m,l,K,olay = False):
     weights = []
-    w_method = ['R_40/60', 'R_MV', 'R_MVL', 'R_RP', 'R_RPL']
-    n = len(ind)
-    # Output DF of length n-m
-    acc_return = np.ones(5) # 5 strategies.
-    train_incr = [m+r*l for r in range(0,int(np.floor((n - K -m) / l)))]
-    Return = np.full(shape=(len(ind),5),fill_value=1.0)
-    for t in train_incr:
-        K_prime = K
-        train = ind.loc[0:t-1] # get first t obs
-        preds = ind.loc[t:t+K-1]
-        # validat en K obs
-        # Get returns for calculations:
-        pred_ret = np.array(preds[['RF','10YrReturns','Market Return']] )
-        pred = np.ones(shape=(K,5)) # Pd accounts for both sides thus -1 
-        # To get full prediction in case of the final test
-        if t == train_incr[-1]:
-            preds = ind.loc[t:]
-            # Get returns for calculations:
-            pred_ret = np.array(preds[['RF','10YrReturns','Market Return']] )
-            pred = np.ones(shape=(len(preds),len(w_method))) # Pd accounts for both sides thus -1 
-            K_prime = len(preds)
-
-        mu,sigma = get_stats(train, mu_target)
-        # Get training weights.
-        w = u.get_weights(mu,sigma, mu_target)
-        weights.append(w)
-        w = np.array(w).reshape((len(w),len(mu))) # slight format change
-        # Get return of each strategy
-        for k in range(0,K_prime):
-            if (k == 0):
-                w0, w1, w2 =  w[:,0], w[:,1], w[:,2]
-                period_return = (1 +  w0 * pred_ret[k,0] + 
-                                w[:,0] * pred_ret[k,1] +
-                                w[:,1] * pred_ret[k,2]) 
-                pred[k, :] = period_return*acc_return
-            else:
-                km1 = k - 1
-                w0, w1, w2 =  w[:,0], w[:,1], w[:,2]
-                period_return =  (1 + w0 * pred_ret[k,0] + w1 * pred_ret[k,1] +
-                                    w2 * pred_ret[k,2])
-                pred[k, :] = period_return* pred[km1, :]
-
-        acc_return =  pred[-1, :]
-        # Out 
-        if t == train_incr[-1]:
-            Return[t:] = pred
-        else:
-            Return[t:t+K_prime] = pred
-
- 
-    out = pd.DataFrame(columns = w_method, data=Return)
-    out = pd.concat([out, ind["Date"]],axis=1)
-    return out, weights
-
-
-def backtest_k(ind,mu_target,m,l,K):
-    weights = []
+    olays_list = []
     w_method = ['R_40/60', 'R_MV', 'R_MVL', 'R_RP', 'R_RPL', 'RF']
     n = len(ind)
     new_row = [1, 0, 0]
@@ -181,8 +102,30 @@ def backtest_k(ind,mu_target,m,l,K):
         train = ind.loc[0:t-1] # get first t obs
         preds = ind.loc[t:t+K-1]
         # validat en K obs
+        # Get stats:
+        mu,sigma = get_stats(train, mu_target)
+        # Get training weights.
+        w = u.get_weights2(mu,sigma, mu_target)
+        # functionality for optimal overlay.
+        olays = np.zeros(len(w_method)) # set zero if not specified.
+        if olay == True:
+            # For each strategy, solve for overlay and find optimal weights given history
+            for i in range(0,len(w)):
+                res = minimize(fun = u.olay_opt, x0 = 0.25, method = 'trust-constr', 
+                                args =(train,mu_target,i), bounds = [(0,1)])
+                olays[i] = np.max([np.min([float(res.x),0.5]),0])
+                mu, sigma,mod_mkt = get_olay_stats(train, mu_target,olays[i])
+                # Aquire optimal weights under strategy i's overlay.
+                w[i] = u.get_weights2(mu, sigma, mu_target)[i] 
+        # Functionality to keep weights - works for new weights too
+        weights.append(w)
+        # Append current overlay set
+        olays_list.append(olays) 
+        w = np.array(w).reshape((len(w),len(mu))) # slight format change
+        w = np.vstack((w, new_row))
         # Get returns for calculations:
         pred_ret = np.array(preds[['RF','10YrReturns','Market Return']] )
+
         pred = np.ones(shape=(K,6)) # Pd accounts for both sides thus -1 
         # To get full prediction in case of the final test
         if t == train_incr[-1]:
@@ -191,31 +134,28 @@ def backtest_k(ind,mu_target,m,l,K):
             pred_ret = np.array(preds[['RF','10YrReturns','Market Return']] )
             pred = np.ones(shape=(len(preds),len(w_method))) # Pd accounts for both sides thus -1 
             K_prime = len(preds)
+        # Functionality for overlay again.
+        add_to_mkt = np.zeros(len(preds)) # is ignored of no overlay
+        if olay == True:
+            # Finds overlay return (but no wright imposed)
+            return_overlay = - preds["BIG LoPRIOR"] + preds["BIG HiPRIOR"]
+            add_to_mkt =  np.array(return_overlay - u.manager_fee(return_overlay))
 
-        mu,sigma = get_stats(train, mu_target)
-        # Not really a rolling estimate, but similar. 
-        # TODO: consider doing this rolling thing differently.
-        sigma_roll = np.cov([train['RF'],train['10YrReturns'],train['Market Return']])
-        sigma_roll = np.sqrt(np.linalg.diagonal(sigma_roll)[1:])
-        # Get training weights.
-        w = u.get_weights2(mu,sigma, mu_target)
-        weights.append(w)
-        w = np.array(w).reshape((len(w),len(mu))) # slight format change
-        w = np.vstack((w, new_row))
+
         # Get return of each strategy
         for k in range(0,K_prime):
             if (k == 0):
                 w0, w1, w2 =  w[:,0], w[:,1], w[:,2]
                 period_return = (1 +  w0 * pred_ret[k,0] + 
                                 w1 * pred_ret[k,1] +
-                                w2 * pred_ret[k,2]) 
+                                w2 * (pred_ret[k,2] + olays*add_to_mkt[k])) 
                 Monthly_Return[t + k, :] = period_return  # Store monthly returns
                 pred[k, :] = period_return*acc_return
             else:
                 km1 = k - 1
                 w0, w1, w2 =  w[:,0], w[:,1], w[:,2]
                 period_return =  (1 + w0 * pred_ret[k,0] + w1 * pred_ret[k,1] +
-                                    w2 * pred_ret[k,2])
+                                    w2 * (pred_ret[k,2]+ olays*add_to_mkt[k]))
                 Monthly_Return[t + k, :] = period_return  # Store monthly returns
                 pred[k, :] = period_return* pred[km1, :]
 
@@ -225,7 +165,6 @@ def backtest_k(ind,mu_target,m,l,K):
             Return[t:] = pred
         else:
             Return[t:t+K_prime] = pred
-
  
     out = pd.DataFrame(columns = w_method, data=Return)
     monthly_out = pd.DataFrame(columns=w_method, data=Monthly_Return)
@@ -251,4 +190,4 @@ def backtest_k(ind,mu_target,m,l,K):
         'Excess Kurtosis': excess_kurtosis
     })
 
-    return out, weights, monthly_out, metrics
+    return out, weights, monthly_out, metrics, olays_list
