@@ -21,6 +21,7 @@ MOMdep = pd.read_csv("Data_clean/25_Portfolios_ME_Prior_12_2_returns.csv")
 MOMdep = MOMdep[["Date", "BIG LoPRIOR", "BIG HiPRIOR"]]
 data = pd.merge(data.copy(),MOMdep, 'left',on = "Date" )
 data["BIG LoPRIOR"], data["BIG HiPRIOR"] =data["BIG LoPRIOR"] /100, data["BIG HiPRIOR"] /100
+data = data[(pd.Timestamp('2010-01-31') > pd.to_datetime(data["Date"])) & (pd.Timestamp('2000-01-31') <= pd.to_datetime(data["Date"]))]
 
 
 test2,w0t,w1t,w2t,ol = bt.backtest_naive2(ind=data, mu_target=mu_target, olay=True)
