@@ -1,5 +1,8 @@
 # Asset Allocation Exam Project
 
+## Data cleaning
+Data cleaning is conducted in the 'Data_cleaning'-type of files
+
 ## Reproducing findings:
 This git contains our code (and data) to reproduce the findings presented in the project. 
 1. To reproduce the part 1, run the notebook Task_1.ipynb 
