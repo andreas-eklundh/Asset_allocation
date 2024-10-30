@@ -106,15 +106,17 @@ def backtest_k(ind,mu_target,m,l,K,olay = False):
         w = u.get_weights2(mu,sigma, mu_target)
         # functionality for optimal overlay.
         olays = np.zeros(len(w_method)) # set zero if not specified.
+        # THIS FUNTIONAILTY IS NOT USED
         if olay == True:
             # For each strategy, solve for overlay and find optimal weights given history
-            for i in range(0,len(w)):
-                res = minimize(fun = u.olay_opt, x0 = 0.25, method = 'trust-constr', 
-                                args =(train,mu_target,i), bounds = [(0,0.5)])
-                olays[i] = res.x
-                mu, sigma,mod_mkt = get_olay_stats(train, mu_target,olays[i])
+            olays=np.array([0.17601239,0.17844658,0.14693794,0.06938174,0.13031504,0])
+#            for i in range(0,len(w)):
+#                res = minimize(fun = u.olay_opt, x0 = 0.25, method = 'trust-constr', 
+#                                args =(train,mu_target,i), bounds = [(0,0.5)])
+#                olays[i] = res.x
+#                mu, sigma,mod_mkt = get_olay_stats(train, mu_target,olays[i])
                 # Aquire optimal weights under strategy i's overlay.
-                w[i] = u.get_weights2(mu, sigma, mu_target)[i] 
+#                w[i] = u.get_weights2(mu, sigma, mu_target)[i] 
         # Functionality to keep weights - works for new weights too
         weights.append(w)
         # Append current overlay set
